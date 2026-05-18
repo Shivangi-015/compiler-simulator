@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Code, Zap, FileCode, Cpu, CheckCircle, ChevronRight, ChevronLeft, Pause, RotateCcw, AlertCircle, Trophy, Star, Target, BookOpen, Home } from 'lucide-react';
+import { Play, Code, Zap, FileCode, Cpu, CheckCircle, ChevronRight, ChevronLeft, Pause, RotateCcw, AlertCircle, Trophy, Star, Target, BookOpen, Home, Menu, X } from 'lucide-react';
 
 const CompilerSimulator = () => {
   const [language, setLanguage] = useState('javascript');
@@ -21,6 +21,7 @@ console.log(result);`);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [completedStages, setCompletedStages] = useState(new Set());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const languageExamples = {
     javascript: `function greet(name) {
@@ -74,16 +75,15 @@ int main() {
     python: ['def', 'return', 'if', 'else', 'elif', 'while', 'for', 'in', 'print', 'class', 'import', 'from', 'as', 'True', 'False', 'None'],
     c: ['int', 'float', 'char', 'void', 'return', 'if', 'else', 'while', 'for', 'include', 'printf', 'scanf', 'main', 'struct'],
     cpp: ['int', 'float', 'char', 'void', 'return', 'if', 'else', 'while', 'for', 'include', 'cout', 'cin', 'using', 'namespace', 'class', 'public', 'private'],
+    java: ['public', 'class', 'static', 'void', 'int', 'String', 'return', 'if', 'else', 'while', 'for', 'new', 'this', 'main', 'System', 'out', 'println']
   };
 
-  // Real Lexical Analyzer - Language Agnostic
   const lexicalAnalysis = (sourceCode) => {
     const tokens = [];
     const keywords = languageKeywords[language];
     
     const cleanCode = sourceCode.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/#.*/g, '');
     
-    // Universal tokenization pattern
     const regex = /([a-zA-Z_$#]\w*)|(\d+\.?\d*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|([+\-*/%=<>!&|]{1,3})|([(){}\[\];,.:@])|(\s+)/g;
     
     let match;
@@ -115,7 +115,6 @@ int main() {
     return tokens;
   };
 
-  // Real Parser - Multi-Language Support
   const syntaxAnalysis = (tokens) => {
     let current = 0;
     const ast = { type: 'Program', body: [] };
@@ -188,7 +187,6 @@ int main() {
       
       if (!token) return null;
       
-      // JavaScript/Java function or Python def
       if (token.value === 'function' || token.value === 'def') {
         consume();
         const name = consume().value;
@@ -228,7 +226,7 @@ int main() {
               break;
             }
           }
-          if (body.length > 5) break; // Prevent infinite loops
+          if (body.length > 5) break;
         }
         
         if (language !== 'python' && peek()?.value === '}') consume();
@@ -236,13 +234,11 @@ int main() {
         return { type: 'FunctionDeclaration', name, params, body };
       }
       
-      // C/C++/Java type declarations
       if (['int', 'float', 'char', 'void', 'double', 'String'].includes(token.value)) {
         const typeToken = consume();
         const name = consume().value;
         
         if (peek()?.value === '(') {
-          // It's a function
           consume();
           const params = [];
           while (peek() && peek().value !== ')') {
@@ -273,7 +269,6 @@ int main() {
           
           return { type: 'FunctionDeclaration', returnType: typeToken.value, name, params, body };
         } else {
-          // Variable declaration
           let init = null;
           if (peek()?.value === '=') {
             consume();
@@ -284,7 +279,6 @@ int main() {
         }
       }
       
-      // JavaScript variable declarations
       if (token.value === 'let' || token.value === 'const' || token.value === 'var') {
         const kind = consume().value;
         const name = consume().value;
@@ -298,7 +292,6 @@ int main() {
         return { type: 'VariableDeclaration', kind, name, init };
       }
       
-      // Java class declaration
       if (token.value === 'public' || token.value === 'class') {
         if (token.value === 'public') consume();
         if (peek()?.value === 'class') {
@@ -309,7 +302,6 @@ int main() {
         }
       }
       
-      // If statements
       if (token.value === 'if') {
         consume();
         if (peek()?.value === '(') consume();
@@ -327,7 +319,6 @@ int main() {
         return { type: 'IfStatement', test, consequent };
       }
       
-      // Expression statements
       if (token.type === 'IDENTIFIER') {
         const expr = parseExpression();
         if (peek()?.value === ';') consume();
@@ -342,7 +333,7 @@ int main() {
       while (current < tokens.length) {
         const stmt = parseStatement();
         if (stmt) ast.body.push(stmt);
-        if (current > tokens.length) break; // Safety check
+        if (current > tokens.length) break;
       }
     } catch (e) {
       throw new Error(`Syntax Error: ${e.message}`);
@@ -351,7 +342,6 @@ int main() {
     return ast;
   };
 
-  // Semantic Analysis
   const semanticAnalysis = (ast) => {
     const symbols = new Map();
     const errors = [];
@@ -385,7 +375,7 @@ int main() {
       
       if (node.type === 'CallExpression') {
         const funcName = node.callee.split('.')[0];
-        if (funcName !== 'console' && !symbols.has(funcName) && !scope.has(funcName)) {
+        if (funcName !== 'console' && funcName !== 'print' && funcName !== 'printf' && funcName !== 'cout' && funcName !== 'System' && !symbols.has(funcName) && !scope.has(funcName)) {
           errors.push(`Function '${funcName}' is not defined`);
         } else {
           checks.push(`✓ Call to '${node.callee}' is valid`);
@@ -408,6 +398,11 @@ int main() {
       if (node.type === 'ExpressionStatement') {
         analyzeNode(node.expression, scope);
       }
+
+      if (node.type === 'ClassDeclaration') {
+        symbols.set(node.name, { type: 'class' });
+        checks.push(`✓ Class '${node.name}' declared`);
+      }
     };
 
     ast.body.forEach(node => analyzeNode(node));
@@ -415,7 +410,6 @@ int main() {
     return { errors, checks, symbols };
   };
 
-  // Generate Intermediate Code
   const generateIntermediateCode = (ast) => {
     const instructions = [];
     let tempCount = 0;
@@ -474,6 +468,11 @@ int main() {
         instructions.push(`L1:`);
       }
 
+      if (node.type === 'ClassDeclaration') {
+        instructions.push(`\nCLASS ${node.name}:`);
+        instructions.push(`END_CLASS\n`);
+      }
+
       return genTemp();
     };
 
@@ -484,7 +483,6 @@ int main() {
     return instructions.join('\n');
   };
 
-  // Optimization
   const optimize = (ir) => {
     const optimizations = [];
     
@@ -511,7 +509,6 @@ int main() {
     };
   };
 
-  // Code Generation
   const generateMachineCode = (ir) => {
     const assembly = [];
     const lines = ir.split('\n').filter(l => l.trim());
@@ -546,8 +543,8 @@ int main() {
       name: 'Lexical Analysis',
       icon: Code,
       color: 'bg-blue-500',
-      description: 'Breaking code into tokens (keywords, identifiers, operators)',
-      funFact: '🔍 Fun Fact: This is like breaking a sentence into individual words!',
+      description: 'Breaking code into tokens',
+      funFact: '🔍 Like breaking a sentence into words!',
       process: (code) => {
         const tokens = lexicalAnalysis(code);
         return tokens.map((t, i) => 
@@ -559,8 +556,8 @@ int main() {
       name: 'Syntax Analysis',
       icon: FileCode,
       color: 'bg-green-500',
-      description: 'Building a syntax tree to check if code follows language rules',
-      funFact: '🌳 Fun Fact: The parse tree is like a family tree for your code!',
+      description: 'Building syntax tree',
+      funFact: '🌳 A family tree for your code!',
       process: (code, tokens) => {
         const ast = syntaxAnalysis(tokens);
         setParseTree(ast);
@@ -572,24 +569,24 @@ int main() {
       name: 'Semantic Analysis',
       icon: CheckCircle,
       color: 'bg-purple-500',
-      description: 'Checking for logical errors (undefined variables, type mismatches)',
-      funFact: '🕵️ Fun Fact: This catches bugs before your code even runs!',
+      description: 'Checking logical errors',
+      funFact: '🕵️ Catches bugs before execution!',
       process: (code, tokens, ast) => {
         const result = semanticAnalysis(ast);
         
         if (result.errors.length > 0) {
-          return `❌ SEMANTIC ERRORS DETECTED:\n\n${result.errors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}\n\n✓ Checks Performed:\n${result.checks.join('\n')}\n\n⚠️  Please fix the errors above!`;
+          return `❌ SEMANTIC ERRORS:\n\n${result.errors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}\n\n✓ Checks:\n${result.checks.join('\n')}`;
         }
         
-        return `✅ SEMANTIC ANALYSIS COMPLETE\n\n${result.checks.join('\n')}\n\n✓ Scope Analysis:\n  → All variables accessible in their scopes\n  → No naming conflicts detected\n\n✓ Type Checking:\n  → All operations type-safe\n  → Function calls match signatures\n\n🎉 STATUS: ALL CHECKS PASSED!`;
+        return `✅ ANALYSIS COMPLETE\n\n${result.checks.join('\n')}\n\n✓ Scope Analysis\n  → All variables accessible\n\n🎉 ALL CHECKS PASSED!`;
       }
     },
     {
       name: 'Intermediate Code',
       icon: Zap,
       color: 'bg-yellow-500',
-      description: 'Converting to a simpler, platform-independent representation',
-      funFact: '⚡ Fun Fact: This is like translating to a universal language!',
+      description: 'Platform-independent code',
+      funFact: '⚡ Universal language translation!',
       process: (code, tokens, ast) => {
         return generateIntermediateCode(ast);
       }
@@ -598,22 +595,22 @@ int main() {
       name: 'Optimization',
       icon: Zap,
       color: 'bg-orange-500',
-      description: 'Making code faster and more efficient',
-      funFact: '🚀 Fun Fact: Optimizations can make code 2-10x faster!',
+      description: 'Making code faster',
+      funFact: '🚀 Can boost speed 2-10x!',
       process: (code, tokens, ast, ir) => {
         const result = optimize(ir);
-        return `🔧 APPLIED OPTIMIZATIONS:\n\n${result.optimizations}${result.stats}`;
+        return `🔧 OPTIMIZATIONS:\n\n${result.optimizations}${result.stats}`;
       }
     },
     {
       name: 'Code Generation',
       icon: Cpu,
       color: 'bg-red-500',
-      description: 'Producing machine code or bytecode for the target platform',
-      funFact: '🤖 Fun Fact: This is the language your computer actually speaks!',
+      description: 'Machine code output',
+      funFact: '🤖 Computer\'s native language!',
       process: (code, tokens, ast, ir) => {
         const result = generateMachineCode(ir);
-        return `🖥️ ASSEMBLY CODE:\n\n${result.assembly}\n\n💻 MACHINE CODE (hexadecimal):\n\n${result.machine}\n\n🎉 COMPILATION COMPLETE!\n→ Your code is ready to execute!`;
+        return `🖥️ ASSEMBLY:\n\n${result.assembly}\n\n💻 MACHINE CODE:\n\n${result.machine}\n\n🎉 COMPILATION COMPLETE!`;
       }
     }
   ];
@@ -623,49 +620,49 @@ int main() {
       question: "What is the first phase of compilation?",
       options: ["Syntax Analysis", "Lexical Analysis", "Semantic Analysis", "Code Generation"],
       correct: 1,
-      explanation: "Lexical Analysis is the first phase where source code is broken down into tokens."
+      explanation: "Lexical Analysis is first, breaking code into tokens."
     },
     {
       question: "What does a parser create?",
       options: ["Machine Code", "Tokens", "Parse Tree/AST", "Optimized Code"],
       correct: 2,
-      explanation: "The parser creates a Parse Tree (or Abstract Syntax Tree) that represents the structure of the code."
+      explanation: "Parser creates a Parse Tree (AST) showing code structure."
     },
     {
       question: "Which phase checks for undefined variables?",
       options: ["Lexical Analysis", "Syntax Analysis", "Semantic Analysis", "Optimization"],
       correct: 2,
-      explanation: "Semantic Analysis checks the meaning of code, including whether variables are defined before use."
+      explanation: "Semantic Analysis checks meaning, including variable definitions."
     },
     {
-      question: "What is the purpose of optimization?",
-      options: ["Find syntax errors", "Make code faster", "Generate tokens", "Parse the code"],
+      question: "What is optimization's purpose?",
+      options: ["Find syntax errors", "Make code faster", "Generate tokens", "Parse code"],
       correct: 1,
-      explanation: "Optimization improves code performance by making it run faster and use less memory."
+      explanation: "Optimization improves performance and efficiency."
     },
     {
-      question: "What does the code generation phase produce?",
+      question: "What does code generation produce?",
       options: ["Source Code", "Tokens", "Parse Tree", "Machine Code"],
       correct: 3,
-      explanation: "Code Generation produces machine code or bytecode that the computer can execute."
+      explanation: "Code Generation produces executable machine code."
     },
     {
       question: "Which is NOT a token type?",
       options: ["KEYWORD", "IDENTIFIER", "OPERATOR", "COMPILER"],
       correct: 3,
-      explanation: "KEYWORD, IDENTIFIER, and OPERATOR are all token types. COMPILER is not a token type."
+      explanation: "COMPILER is not a token type."
     },
     {
-      question: "What does IR stand for in compilers?",
+      question: "What does IR stand for?",
       options: ["Internal Reference", "Intermediate Representation", "Inline Return", "Index Register"],
       correct: 1,
-      explanation: "IR stands for Intermediate Representation, a platform-independent code format."
+      explanation: "IR = Intermediate Representation, platform-independent code."
     },
     {
-      question: "Why do we need multiple compilation phases?",
-      options: ["To make it slower", "To separate concerns and catch different errors", "To confuse programmers", "No reason"],
+      question: "Why multiple compilation phases?",
+      options: ["Slower execution", "Catch different errors", "Confuse programmers", "No reason"],
       correct: 1,
-      explanation: "Multiple phases help organize the compilation process and catch different types of errors at appropriate stages."
+      explanation: "Phases organize compilation and catch different error types."
     }
   ];
 
@@ -687,7 +684,7 @@ int main() {
     }, [ast]);
 
     if (!ast || !ast.body || ast.body.length === 0) {
-      return <div className="text-slate-400 text-center py-8">No parse tree generated</div>;
+      return <div className="text-slate-400 text-center py-8 text-sm">No parse tree generated</div>;
     }
 
     const nodeClass = (index) => 
@@ -698,28 +695,23 @@ int main() {
     return (
       <div className="py-4">
         <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-          <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg mb-6 text-center inline-block">
-            📋 Program Root
+          <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg mb-4 text-center inline-block text-sm">
+            📋 Program
           </div>
         </div>
         
-        <div className="space-y-6 ml-4">
+        <div className="space-y-4 ml-2">
           {ast.body.map((node, i) => (
             <div key={i} className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
               {node.type === 'FunctionDeclaration' && (
-                <div className="border-l-4 border-blue-500 pl-4 bg-blue-500/10 p-3 rounded">
-                  <div className="bg-blue-500 text-white px-4 py-2 rounded-lg inline-block mb-2 font-semibold">
-                    🔧 Function: {node.name}
+                <div className="border-l-4 border-blue-500 pl-3 bg-blue-500/10 p-2 rounded">
+                  <div className="bg-blue-500 text-white px-3 py-1.5 rounded-lg inline-block mb-1 font-semibold text-sm">
+                    🔧 {node.name}
                   </div>
-                  <div className="ml-6 space-y-2 mt-2">
+                  <div className="ml-4 space-y-1 mt-1">
                     <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-                      <div className="bg-cyan-400 text-slate-900 px-3 py-1.5 rounded text-sm inline-block font-medium">
-                        📝 Parameters: [{node.params.join(', ') || 'none'}]
-                      </div>
-                    </div>
-                    <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-                      <div className="bg-purple-400 text-white px-3 py-1.5 rounded text-sm inline-block font-medium">
-                        ↩️ {node.body.length} Statement(s) in body
+                      <div className="bg-cyan-400 text-slate-900 px-2 py-1 rounded text-xs inline-block font-medium">
+                        params: [{node.params.join(', ') || 'none'}]
                       </div>
                     </div>
                   </div>
@@ -727,48 +719,25 @@ int main() {
               )}
               
               {node.type === 'VariableDeclaration' && (
-                <div className="border-l-4 border-green-500 pl-4 bg-green-500/10 p-3 rounded">
-                  <div className="bg-green-500 text-white px-4 py-2 rounded-lg inline-block mb-2 font-semibold">
-                    📦 Variable: {node.name}
+                <div className="border-l-4 border-green-500 pl-3 bg-green-500/10 p-2 rounded">
+                  <div className="bg-green-500 text-white px-3 py-1.5 rounded-lg inline-block mb-1 font-semibold text-sm">
+                    📦 {node.name}
                   </div>
-                  {node.init && (
-                    <div className="ml-6 mt-2">
-                      <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-                        <div className="bg-yellow-400 text-slate-900 px-3 py-1.5 rounded text-sm inline-block font-medium">
-                          ⚡ Initialized with: {node.init.type}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
               
               {node.type === 'ExpressionStatement' && (
-                <div className="border-l-4 border-orange-500 pl-4 bg-orange-500/10 p-3 rounded">
-                  <div className="bg-orange-500 text-white px-4 py-2 rounded-lg inline-block mb-2 font-semibold">
+                <div className="border-l-4 border-orange-500 pl-3 bg-orange-500/10 p-2 rounded">
+                  <div className="bg-orange-500 text-white px-3 py-1.5 rounded-lg inline-block font-semibold text-sm">
                     ⚡ Expression
-                  </div>
-                  <div className="ml-6 mt-2">
-                    <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-                      <div className="bg-orange-300 text-slate-900 px-3 py-1.5 rounded text-sm inline-block font-medium">
-                        Type: {node.expression.type}
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
 
-              {node.type === 'IfStatement' && (
-                <div className="border-l-4 border-pink-500 pl-4 bg-pink-500/10 p-3 rounded">
-                  <div className="bg-pink-500 text-white px-4 py-2 rounded-lg inline-block mb-2 font-semibold">
-                    🔀 If Statement
-                  </div>
-                  <div className="ml-6 mt-2">
-                    <div className={`transition-all duration-300 ${nodeClass(nodeIndex++)}`}>
-                      <div className="bg-pink-300 text-slate-900 px-3 py-1.5 rounded text-sm inline-block font-medium">
-                        Condition + {node.consequent.length} statement(s)
-                      </div>
-                    </div>
+              {node.type === 'ClassDeclaration' && (
+                <div className="border-l-4 border-purple-500 pl-3 bg-purple-500/10 p-2 rounded">
+                  <div className="bg-purple-500 text-white px-3 py-1.5 rounded-lg inline-block font-semibold text-sm">
+                    🏛️ Class: {node.name}
                   </div>
                 </div>
               )}
@@ -888,101 +857,168 @@ int main() {
     setScore(0);
   };
 
+  const getLanguageColor = (lang) => {
+    const colors = {
+      javascript: 'blue',
+      python: 'green',
+      c: 'yellow',
+      cpp: 'orange',
+      java: 'red'
+    };
+    return colors[lang] || 'blue';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      {/* Navigation Bar */}
       <nav className="bg-slate-900/95 backdrop-blur border-b border-purple-500/30 sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Cpu className="text-purple-400" size={32} />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Cpu className="text-purple-400" size={28} />
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 Compiler Quest
               </h1>
             </div>
-            <div className="flex gap-2">
+            
+            <div className="hidden md:flex gap-2">
               <button
                 onClick={() => setActiveSection('compiler')}
-                className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                className={`px-4 lg:px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all text-sm lg:text-base ${
                   activeSection === 'compiler'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600'
                     : 'bg-slate-800 hover:bg-slate-700'
                 }`}
               >
                 <Home size={18} />
-                Compiler
+                <span className="hidden lg:inline">Compiler</span>
               </button>
               <button
                 onClick={() => setActiveSection('learn')}
-                className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                className={`px-4 lg:px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all text-sm lg:text-base ${
                   activeSection === 'learn'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600'
                     : 'bg-slate-800 hover:bg-slate-700'
                 }`}
               >
                 <BookOpen size={18} />
-                Learn
+                <span className="hidden lg:inline">Learn</span>
               </button>
               <button
                 onClick={() => setActiveSection('quiz')}
-                className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                className={`px-4 lg:px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all text-sm lg:text-base ${
                   activeSection === 'quiz'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600'
                     : 'bg-slate-800 hover:bg-slate-700'
                 }`}
               >
                 <Trophy size={18} />
+                <span className="hidden lg:inline">Quiz</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 hover:bg-slate-800 rounded-lg transition-all"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-4 space-y-2 pb-2">
+              <button
+                onClick={() => {
+                  setActiveSection('compiler');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                  activeSection === 'compiler'
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+                    : 'bg-slate-800'
+                }`}
+              >
+                <Home size={18} />
+                Compiler
+              </button>
+              <button
+                onClick={() => {
+                  setActiveSection('learn');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                  activeSection === 'learn'
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+                    : 'bg-slate-800'
+                }`}
+              >
+                <BookOpen size={18} />
+                Learn
+              </button>
+              <button
+                onClick={() => {
+                  setActiveSection('quiz');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                  activeSection === 'quiz'
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+                    : 'bg-slate-800'
+                }`}
+              >
+                <Trophy size={18} />
                 Quiz
               </button>
             </div>
-          </div>
+          )}
           
-          {/* Progress Bar */}
           {activeSection === 'compiler' && (
-            <div className="mt-4">
+            <div className="mt-3 sm:mt-4">
               <div className="flex items-center gap-2 mb-2">
-                <Star className="text-yellow-400" size={16} />
-                <span className="text-sm font-medium">Compilation Progress</span>
+                <Star className="text-yellow-400" size={14} />
+                <span className="text-xs sm:text-sm font-medium">Progress</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-slate-800 rounded-full h-2 sm:h-3 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-full transition-all duration-500 rounded-full"
                   style={{ width: `${((completedStages.size) / stages.length) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-400 mt-1">{completedStages.size} of {stages.length} stages completed</p>
+              <p className="text-xs text-slate-400 mt-1">{completedStages.size}/{stages.length} stages</p>
             </div>
           )}
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Compiler Section */}
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
         {activeSection === 'compiler' && (
           <>
-            <header className="text-center mb-8 animate-fade-in">
-              <p className="text-slate-300 text-lg mb-3">
-                 Write code in <span className="font-bold text-purple-400">{language.toUpperCase()}</span> and watch it compile in real-time!
+            <header className="text-center mb-6 sm:mb-8">
+              <p className="text-slate-300 text-base sm:text-lg mb-3">
+                🚀 Write code in <span className="font-bold text-purple-400">{language.toUpperCase()}</span> and watch it compile!
               </p>
               <div className="flex justify-center gap-2 flex-wrap">
-                <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/50 rounded-full text-sm">JavaScript</span>
-                <span className="px-3 py-1 bg-green-500/20 border border-green-500/50 rounded-full text-sm">Python</span>
-                <span className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/50 rounded-full text-sm">C</span>
-                <span className="px-3 py-1 bg-orange-500/20 border border-orange-500/50 rounded-full text-sm">C++</span>
-                
+                {Object.keys(languageExamples).map((lang) => {
+                  const colorName = getLanguageColor(lang);
+                  return (
+                    <span 
+                      key={lang} 
+                      className={`px-2 sm:px-3 py-1 bg-${colorName}-500/20 border border-${colorName}-500/50 rounded-full text-xs sm:text-sm`}
+                    >
+                      {lang === 'cpp' ? 'C++' : lang === 'javascript' ? 'JS' : lang.charAt(0).toUpperCase() + lang.slice(1)}
+                    </span>
+                  );
+                })}
               </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* Code Editor */}
-              <div className="bg-slate-800/80 backdrop-blur rounded-xl p-6 shadow-2xl border border-purple-500/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Code size={20} className="text-blue-400" />
-                    Source Code Editor
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-slate-800/80 backdrop-blur rounded-xl p-4 sm:p-6 shadow-2xl border border-purple-500/30">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                  <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
+                    <Code size={18} className="text-blue-400" />
+                    <span className="text-sm sm:text-base">Code Editor</span>
                   </h2>
                   
-                  {/* Language Selector */}
                   <select
                     value={language}
                     onChange={(e) => {
@@ -990,19 +1026,14 @@ int main() {
                       setCode(languageExamples[e.target.value]);
                       reset();
                     }}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-lg border border-purple-500 font-semibold cursor-pointer hover:bg-slate-800 transition-all"
+                    className="w-full sm:w-auto bg-slate-900 text-white px-3 sm:px-4 py-2 rounded-lg border border-purple-500 font-semibold cursor-pointer hover:bg-slate-800 transition-all text-sm"
                   >
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
                     <option value="c">C</option>
                     <option value="cpp">C++</option>
-                    
+                    <option value="java">Java</option>
                   </select>
-                </div>
-                
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-sm text-slate-400">Language:</span>
-                  <span className="text-sm font-bold text-purple-300">{language.toUpperCase()}</span>
                 </div>
                 
                 <textarea
@@ -1011,110 +1042,110 @@ int main() {
                     setCode(e.target.value);
                     reset();
                   }}
-                  className="w-full h-80 bg-slate-900/90 text-green-300 p-4 rounded-lg font-mono text-sm border border-slate-600 focus:border-purple-500 focus:outline-none transition-all resize-none"
+                  className="w-full h-48 sm:h-64 lg:h-80 bg-slate-900/90 text-green-300 p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm border border-slate-600 focus:border-purple-500 focus:outline-none transition-all resize-none"
                   spellCheck="false"
                   placeholder={`Write your ${language} code here...`}
                 />
-                <div className="mt-4 flex gap-3">
+                <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <button
                     onClick={startAutoPlay}
                     disabled={isAnimating && !isPaused}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-700 px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all transform hover:scale-105 shadow-lg"
+                    className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-700 px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all transform hover:scale-105 shadow-lg text-sm sm:text-base"
                   >
-                    <Play size={20} />
-                    {isAnimating ? 'Compiling...' : 'Compile Code'}
+                    <Play size={18} />
+                    {isAnimating ? 'Compiling...' : 'Compile'}
                   </button>
                   <button
                     onClick={() => setIsPaused(!isPaused)}
                     disabled={!isAnimating}
-                    className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-slate-700 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg"
+                    className="px-4 sm:px-6 py-2 sm:py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-slate-700 rounded-lg font-bold transition-all flex items-center justify-center gap-2 shadow-lg text-sm sm:text-base"
                   >
-                    <Pause size={20} />
+                    <Pause size={18} />
+                    <span className="hidden sm:inline">{isPaused ? 'Resume' : 'Pause'}</span>
                   </button>
                   <button
                     onClick={reset}
-                    className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg"
+                    className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all flex items-center justify-center gap-2 shadow-lg text-sm sm:text-base"
                   >
-                    <RotateCcw size={20} />
+                    <RotateCcw size={18} />
+                    <span className="hidden sm:inline">Reset</span>
                   </button>
                 </div>
               </div>
 
-              {/* Output Section - EXPANDED */}
-              <div className="bg-slate-800/80 backdrop-blur rounded-xl p-6 shadow-2xl border border-purple-500/30">
-                <h2 className="text-xl font-semibold mb-4 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Target className="text-green-400" />
-                    Stage Output
+              <div className="bg-slate-800/80 backdrop-blur rounded-xl p-4 sm:p-6 shadow-2xl border border-purple-500/30">
+                <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm sm:text-base">
+                    <Target className="text-green-400" size={18} />
+                    Output
                   </span>
                   {currentStage >= 0 && (
-                    <span className="text-sm bg-purple-600 px-3 py-1 rounded-full animate-pulse">
-                      Stage {currentStage + 1}/{stages.length}
+                    <span className="text-xs sm:text-sm bg-purple-600 px-2 sm:px-3 py-1 rounded-full animate-pulse">
+                      {currentStage + 1}/{stages.length}
                     </span>
                   )}
                 </h2>
-                <div className="bg-slate-900/90 rounded-lg p-5 h-96 overflow-auto border border-slate-600 custom-scrollbar">
+                <div className="bg-slate-900/90 rounded-lg p-3 sm:p-5 h-64 sm:h-80 lg:h-96 overflow-auto border border-slate-600 custom-scrollbar">
                   {currentStage >= 0 ? (
                     stages[currentStage].showTree && parseTree ? (
                       <ParseTree ast={parseTree} />
                     ) : (
-                      <pre className="text-sm text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
+                      <pre className="text-xs sm:text-sm text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
                         {stageOutputs[currentStage] || 'Processing...'}
                       </pre>
                     )
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                      <Cpu size={64} className="mb-4 opacity-50 animate-pulse" />
-                      <p className="text-center text-lg font-semibold">Ready to Compile!</p>
-                      <p className="text-sm mt-2 text-center">Click "Compile Code" or use navigation below</p>
+                      <Cpu size={48} className="mb-4 opacity-50 animate-pulse" />
+                      <p className="text-center text-base sm:text-lg font-semibold">Ready!</p>
+                      <p className="text-xs sm:text-sm mt-2 text-center">Click Compile to start</p>
                     </div>
                   )}
                 </div>
                 
                 {currentStage >= 0 && !compileError && (
-                  <div className="mt-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-3 animate-fade-in">
-                    <p className="text-sm text-purple-200 font-medium">{stages[currentStage].funFact}</p>
+                  <div className="mt-3 sm:mt-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-2 sm:p-3">
+                    <p className="text-xs sm:text-sm text-purple-200 font-medium">{stages[currentStage].funFact}</p>
                   </div>
                 )}
 
                 {compileError && (
-                  <div className="mt-4 bg-red-600/20 border border-red-500/50 rounded-lg p-3 flex items-start gap-2 animate-shake">
-                    <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="mt-3 sm:mt-4 bg-red-600/20 border border-red-500/50 rounded-lg p-2 sm:p-3 flex items-start gap-2">
+                    <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-red-300">Compilation Error</p>
-                      <p className="text-sm text-red-200 mt-1">{compileError}</p>
+                      <p className="text-xs sm:text-sm font-bold text-red-300">Error</p>
+                      <p className="text-xs sm:text-sm text-red-200 mt-1">{compileError}</p>
                     </div>
                   </div>
                 )}
 
-                <div className="mt-4 flex gap-3">
+                <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3">
                   <button
                     onClick={goToPrevStage}
                     disabled={currentStage <= 0}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all"
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 px-3 sm:px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all text-sm sm:text-base"
                   >
-                    <ChevronLeft size={20} />
-                    Previous
+                    <ChevronLeft size={18} />
+                    <span className="hidden sm:inline">Previous</span>
                   </button>
                   <button
                     onClick={goToNextStage}
                     disabled={currentStage >= stages.length - 1}
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-600 px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all"
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-600 px-3 sm:px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all text-sm sm:text-base"
                   >
-                    Next
-                    <ChevronRight size={20} />
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Pipeline Cards */}
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 flex items-center gap-2">
                 <Zap className="text-yellow-400 animate-pulse" />
-                Compilation Pipeline
+                Pipeline
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {stages.map((stage, index) => {
                   const Icon = stage.icon;
                   const isActive = currentStage === index;
@@ -1123,7 +1154,7 @@ int main() {
                   return (
                     <div
                       key={index}
-                      className={`bg-slate-800/80 backdrop-blur rounded-xl p-5 border-2 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-2xl ${
+                      className={`bg-slate-800/80 backdrop-blur rounded-xl p-4 sm:p-5 border-2 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-2xl ${
                         isActive
                           ? 'border-purple-500 shadow-lg shadow-purple-500/50 scale-105'
                           : isCompleted
@@ -1134,26 +1165,26 @@ int main() {
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`${stage.color} p-3 rounded-lg transition-all ${
+                          className={`${stage.color} p-2 sm:p-3 rounded-lg transition-all ${
                             isActive ? 'animate-pulse scale-110' : ''
                           }`}
                         >
-                          <Icon size={24} />
+                          <Icon size={20} />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-bold">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="text-base sm:text-lg font-bold truncate">
                               {index + 1}. {stage.name}
                             </h3>
                             {isCompleted && (
-                              <CheckCircle size={18} className="text-green-400" />
+                              <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-slate-300 text-sm">{stage.description}</p>
+                          <p className="text-slate-300 text-xs sm:text-sm">{stage.description}</p>
                           {isActive && (
                             <div className="mt-2">
                               <span className="text-xs bg-purple-600 px-2 py-1 rounded-full animate-pulse font-bold">
-                                RUNNING
+                                ACTIVE
                               </span>
                             </div>
                           )}
@@ -1166,71 +1197,86 @@ int main() {
             </div>
           </>
         )}
-        {/* Learn Section */}
+
         {activeSection === 'learn' && (
           <div className="max-w-4xl mx-auto">
-            <div className="bg-slate-800/80 backdrop-blur rounded-xl p-8 shadow-2xl border border-purple-500/30">
-              <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
-                <BookOpen className="text-blue-400" size={36} />
+            <div className="bg-slate-800/80 backdrop-blur rounded-xl p-6 sm:p-8 shadow-2xl border border-purple-500/30">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 flex items-center gap-3">
+                <BookOpen className="text-blue-400" size={32} />
                 Understanding Compilers
               </h2>
               
-              <div className="space-y-6 text-slate-300">
-                <div className="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded">
-                  <h3 className="text-xl font-bold text-blue-300 mb-2">What is a Compiler?</h3>
-                  <p>A compiler is a special program that translates code written in a high-level programming language (like JavaScript, Python, or C++) into machine code that your computer can execute directly.</p>
+              <div className="space-y-4 sm:space-y-6 text-slate-300 text-sm sm:text-base">
+                <div className="bg-blue-500/10 border-l-4 border-blue-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-blue-300 mb-2">What is a Compiler?</h3>
+                  <p>A compiler is a special program that translates code written in a high-level programming language (like JavaScript, Python, or C++) into machine code that your computer can execute directly. Think of it as a translator between human-readable code and computer-understandable instructions.</p>
+                  <p className="mt-2">Without compilers, programmers would have to write in binary (0s and 1s) or assembly language, which is extremely difficult and time-consuming!</p>
                 </div>
 
-                <div className="bg-green-500/10 border-l-4 border-green-500 p-4 rounded">
-                  <h3 className="text-xl font-bold text-green-300 mb-2">Why Multiple Phases?</h3>
-                  <p>Breaking compilation into phases makes it easier to:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Catch different types of errors at appropriate stages</li>
-                    <li>Optimize code for better performance</li>
-                    <li>Support multiple programming languages and target platforms</li>
-                    <li>Maintain and improve the compiler code</li>
+                <div className="bg-green-500/10 border-l-4 border-green-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-green-300 mb-2">Why Multiple Phases?</h3>
+                  <p className="mb-3">Breaking compilation into phases makes it easier to:</p>
+                  <ul className="list-disc list-inside mt-2 space-y-2">
+                    <li><strong>Catch different types of errors</strong> at appropriate stages - syntax errors in parsing, undefined variables in semantic analysis, etc.</li>
+                    <li><strong>Optimize code for better performance</strong> - make your programs run faster and use less memory</li>
+                    <li><strong>Support multiple programming languages</strong> and target platforms by reusing phases</li>
+                    <li><strong>Maintain and improve</strong> the compiler code more easily by separating concerns</li>
                   </ul>
                 </div>
 
-                <div className="bg-purple-500/10 border-l-4 border-purple-500 p-4 rounded">
-                  <h3 className="text-xl font-bold text-purple-300 mb-2">The Compilation Journey</h3>
-                  <p className="mb-3">Every programming language goes through these stages when compiling:</p>
+                <div className="bg-purple-500/10 border-l-4 border-purple-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-purple-300 mb-2">The Compilation Journey</h3>
+                  <p className="mb-3">Every programming language goes through these same 6 stages when compiling. Here's what happens at each stage:</p>
                   <div className="space-y-3 mt-3">
                     {stages.map((stage, i) => (
-                      <div key={i} className="flex items-start gap-3">
-                        <div className={`${stage.color} p-2 rounded`}>
-                          <stage.icon size={20} />
+                      <div key={i} className="flex items-start gap-2 sm:gap-3">
+                        <div className={`${stage.color} p-1.5 sm:p-2 rounded flex-shrink-0`}>
+                          <stage.icon size={18} />
                         </div>
                         <div>
-                          <p className="font-bold">{stage.name}</p>
-                          <p className="text-sm text-slate-400">{stage.description}</p>
+                          <p className="font-bold text-sm sm:text-base">{i + 1}. {stage.name}</p>
+                          <p className="text-xs sm:text-sm text-slate-400">{stage.description}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-orange-500/10 border-l-4 border-orange-500 p-4 rounded">
-                  <h3 className="text-xl font-bold text-orange-300 mb-2">Multi-Language Support</h3>
-                  <p className="mb-2">This compiler simulator supports:</p>
-                  <ul className="space-y-2">
-                    <li>✨ <strong>JavaScript:</strong> Modern web programming language</li>
-                    <li>🐍 <strong>Python:</strong> Beginner-friendly, indentation-based syntax</li>
-                    <li>⚡ <strong>C:</strong> Low-level, compiled language for systems programming</li>
-                    <li>🚀 <strong>C++:</strong> Object-oriented extension of C</li>
+                <div className="bg-orange-500/10 border-l-4 border-orange-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-orange-300 mb-2">Multi-Language Support</h3>
+                  <p className="mb-3">This compiler simulator supports 5 different programming languages. Try them all to see how different syntax gets compiled through the same phases:</p>
+                  <ul className="space-y-2 text-sm sm:text-base">
+                    <li>✨ <strong>JavaScript</strong> - Modern web programming language used in browsers and Node.js</li>
+                    <li>🐍 <strong>Python</strong> - Beginner-friendly language with clean, readable syntax based on indentation</li>
+                    <li>⚡ <strong>C</strong> - Low-level compiled language for systems programming and embedded devices</li>
+                    <li>🚀 <strong>C++</strong> - Object-oriented extension of C with classes and advanced features</li>
+                    <li>☕ <strong>Java</strong> - Platform-independent, class-based language used for enterprise applications</li>
                   </ul>
-                  <p className="mt-3 text-sm text-slate-400">
+                  <p className="mt-3 text-sm text-slate-400 italic">
                     All languages follow the same compilation phases, but with language-specific keywords and syntax rules!
                   </p>
                 </div>
 
-                <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 rounded">
-                  <h3 className="text-xl font-bold text-yellow-300 mb-2">🎯 Quick Tips</h3>
+                <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-yellow-300 mb-2">🎯 Quick Tips for Learning</h3>
                   <ul className="space-y-2">
-                    <li>✨ <strong>Experiment!</strong> Try different code samples to see how they're compiled</li>
-                    <li>🔍 <strong>Watch Carefully:</strong> Each phase adds important information</li>
-                    <li>🐛 <strong>Learn from Errors:</strong> Compilation errors teach you proper syntax</li>
-                    <li>🚀 <strong>Optimization Matters:</strong> See how compilers make code faster</li>
+                    <li>✨ <strong>Experiment!</strong> Try writing different code samples and see how they're compiled</li>
+                    <li>🔍 <strong>Watch Carefully:</strong> Each phase adds important information about your code</li>
+                    <li>🐛 <strong>Learn from Errors:</strong> Compilation errors teach you proper syntax and structure</li>
+                    <li>🚀 <strong>Optimization Matters:</strong> See how compilers make your code run faster automatically</li>
+                    <li>🌳 <strong>Parse Trees are Cool:</strong> They show the logical structure of your program</li>
+                    <li>💡 <strong>Take the Quiz:</strong> Test your knowledge after exploring the compiler!</li>
+                  </ul>
+                </div>
+
+                <div className="bg-pink-500/10 border-l-4 border-pink-500 p-3 sm:p-4 rounded">
+                  <h3 className="text-lg sm:text-xl font-bold text-pink-300 mb-2">🎓 Did You Know?</h3>
+                  <ul className="space-y-2 text-sm sm:text-base">
+                    <li>🔥 The first compiler was created by Grace Hopper in 1952</li>
+                    <li>⚡ Modern compilers can optimize code better than most humans can manually</li>
+                    <li>🌍 The same compiler techniques are used for dozens of programming languages</li>
+                    <li>🤖 Compilers don't just translate code - they also catch bugs and improve performance</li>
+                    <li>🎯 Learning about compilers helps you write better, more efficient code</li>
                   </ul>
                 </div>
               </div>
@@ -1238,36 +1284,35 @@ int main() {
           </div>
         )}
 
-        {/* Quiz Section */}
         {activeSection === 'quiz' && (
           <div className="max-w-4xl mx-auto">
-            <div className="bg-slate-800/80 backdrop-blur rounded-xl p-8 shadow-2xl border border-purple-500/30">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <Trophy className="text-yellow-400" size={36} />
-                  Compiler Knowledge Quiz
+            <div className="bg-slate-800/80 backdrop-blur rounded-xl p-6 sm:p-8 shadow-2xl border border-purple-500/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+                  <Trophy className="text-yellow-400" size={32} />
+                  Quiz
                 </h2>
                 {showResults && (
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-yellow-400">{score}/{quizQuestions.length}</div>
-                    <div className="text-sm text-slate-400">Your Score</div>
+                    <div className="text-3xl sm:text-4xl font-bold text-yellow-400">{score}/{quizQuestions.length}</div>
+                    <div className="text-xs sm:text-sm text-slate-400">Score</div>
                   </div>
                 )}
               </div>
 
               {!showResults ? (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {quizQuestions.map((q, qIndex) => (
-                    <div key={qIndex} className="bg-slate-900/50 p-5 rounded-lg border border-slate-700">
-                      <h3 className="text-lg font-bold mb-4 text-purple-300">
-                        Question {qIndex + 1}: {q.question}
+                    <div key={qIndex} className="bg-slate-900/50 p-4 sm:p-5 rounded-lg border border-slate-700">
+                      <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-purple-300">
+                        Q{qIndex + 1}: {q.question}
                       </h3>
                       <div className="space-y-2">
                         {q.options.map((option, oIndex) => (
                           <button
                             key={oIndex}
                             onClick={() => handleQuizAnswer(qIndex, oIndex)}
-                            className={`w-full text-left p-4 rounded-lg transition-all font-medium ${
+                            className={`w-full text-left p-3 sm:p-4 rounded-lg transition-all font-medium text-sm sm:text-base ${
                               quizAnswers[qIndex] === oIndex
                                 ? 'bg-purple-600 border-2 border-purple-400 shadow-lg'
                                 : 'bg-slate-800 border border-slate-600 hover:bg-slate-700 hover:border-purple-500'
@@ -1283,28 +1328,25 @@ int main() {
                   <button
                     onClick={submitQuiz}
                     disabled={Object.keys(quizAnswers).length !== quizQuestions.length}
-                    className="w-full bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 disabled:from-slate-600 disabled:to-slate-700 px-8 py-4 rounded-lg font-bold text-lg transition-all transform hover:scale-105 shadow-xl disabled:scale-100"
+                    className="w-full bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 disabled:from-slate-600 disabled:to-slate-700 px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg transition-all transform hover:scale-105 shadow-xl disabled:scale-100"
                   >
                     {Object.keys(quizAnswers).length === quizQuestions.length 
-                      ? ' Submit Quiz' 
-                      : `Answer All Questions (${Object.keys(quizAnswers).length}/${quizQuestions.length})`}
+                      ? '🎯 Submit' 
+                      : `Answer All (${Object.keys(quizAnswers).length}/${quizQuestions.length})`}
                   </button>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="text-center p-8 bg-gradient-to-r from-purple-900/50 to-blue-900/50 rounded-xl border-2 border-purple-500">
-                    <Trophy className="mx-auto mb-4 text-yellow-400" size={64} />
-                    <h3 className="text-3xl font-bold mb-2">
-                      {score === quizQuestions.length ? '🎉 Perfect Score!' :
-                       score >= quizQuestions.length * 0.7 ? '👏 Great Job!' :
-                       score >= quizQuestions.length * 0.5 ? '👍 Good Effort!' :
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="text-center p-6 sm:p-8 bg-gradient-to-r from-purple-900/50 to-blue-900/50 rounded-xl border-2 border-purple-500">
+                    <Trophy className="mx-auto mb-4 text-yellow-400" size={48} />
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-2">
+                      {score === quizQuestions.length ? '🎉 Perfect!' :
+                       score >= quizQuestions.length * 0.7 ? '👏 Great!' :
+                       score >= quizQuestions.length * 0.5 ? '👍 Good!' :
                        '💪 Keep Learning!'}
                     </h3>
-                    <p className="text-xl text-slate-300">
-                      You scored {score} out of {quizQuestions.length}
-                    </p>
-                    <p className="text-lg text-slate-400 mt-2">
-                      ({Math.round((score / quizQuestions.length) * 100)}%)
+                    <p className="text-lg sm:text-xl text-slate-300">
+                      {score}/{quizQuestions.length}
                     </p>
                   </div>
 
@@ -1315,31 +1357,31 @@ int main() {
                     return (
                       <div 
                         key={qIndex} 
-                        className={`p-5 rounded-lg border-2 ${
+                        className={`p-4 sm:p-5 rounded-lg border-2 ${
                           isCorrect 
                             ? 'bg-green-500/10 border-green-500' 
                             : 'bg-red-500/10 border-red-500'
                         }`}
                       >
-                        <div className="flex items-start gap-3 mb-3">
+                        <div className="flex items-start gap-2 sm:gap-3 mb-3">
                           {isCorrect ? (
-                            <CheckCircle className="text-green-400 flex-shrink-0" size={24} />
+                            <CheckCircle className="text-green-400 flex-shrink-0" size={20} />
                           ) : (
-                            <AlertCircle className="text-red-400 flex-shrink-0" size={24} />
+                            <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
                           )}
-                          <div className="flex-1">
-                            <h3 className="text-lg font-bold mb-2">
-                              Question {qIndex + 1}: {q.question}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm sm:text-lg font-bold mb-2">
+                              Q{qIndex + 1}: {q.question}
                             </h3>
-                            <p className={`font-medium ${isCorrect ? 'text-green-300' : 'text-red-300'}`}>
-                              Your answer: {q.options[userAnswer]}
+                            <p className={`font-medium text-xs sm:text-base ${isCorrect ? 'text-green-300' : 'text-red-300'}`}>
+                              Your: {q.options[userAnswer]}
                             </p>
                             {!isCorrect && (
-                              <p className="font-medium text-green-300 mt-1">
-                                Correct answer: {q.options[q.correct]}
+                              <p className="font-medium text-green-300 mt-1 text-xs sm:text-base">
+                                Correct: {q.options[q.correct]}
                               </p>
                             )}
-                            <p className="text-sm text-slate-400 mt-2">
+                            <p className="text-xs sm:text-sm text-slate-400 mt-2">
                               💡 {q.explanation}
                             </p>
                           </div>
@@ -1350,9 +1392,9 @@ int main() {
 
                   <button
                     onClick={resetQuiz}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-8 py-4 rounded-lg font-bold text-lg transition-all transform hover:scale-105 shadow-xl"
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg transition-all transform hover:scale-105 shadow-xl"
                   >
-                    🔄 Retake Quiz
+                    🔄 Retake
                   </button>
                 </div>
               )}
@@ -1363,7 +1405,7 @@ int main() {
 
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: #1e293b;
@@ -1375,21 +1417,6 @@ int main() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #9333ea;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-        .animate-shake {
-          animation: shake 0.3s ease-out;
         }
       `}</style>
     </div>
